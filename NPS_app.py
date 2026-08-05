@@ -229,6 +229,53 @@ h4, h5, h6 { color: var(--ink) !important; font-weight: 600 !important; }
     .cat-grid { grid-template-columns: 1fr; }
 }
 
+/* ---- Tabela de composição mês a mês ---- */
+.comp-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card);
+}
+.comp-tabela { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.comp-th {
+    text-align: right;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 11px 12px 9px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+}
+.comp-th:first-child { text-align: left; }
+.comp-tabela td { padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.comp-tabela tbody tr:last-child td { border-bottom: none; }
+.comp-tabela tbody tr:hover td { background: var(--blue-soft); }
+.comp-mes { font-weight: 600; color: var(--navy); white-space: nowrap; }
+.comp-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    padding-right: 6px !important;
+    white-space: nowrap;
+}
+.comp-total { font-weight: 700; color: var(--navy); }
+.comp-bar-cell { min-width: 96px; padding-left: 0 !important; }
+.comp-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--line);
+    overflow: hidden;
+    margin-bottom: 3px;
+}
+.comp-bar > i { display: block; height: 100%; border-radius: 3px; }
+.comp-pct {
+    font-size: 10.5px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
 /* ---- Botões (primário e download) ---- */
 .stButton > button, .stDownloadButton > button {
     background: var(--navy); color: #FFFFFF; border: none;
@@ -491,6 +538,14 @@ def filtrar_por_programa(df, coluna_programa, selecao):
 
 ORDEM_PROGRAMAS = ['Pós OS', 'Maintenance', 'Reparo', 'Instalação']
 
+# Nome de exibição dos programas. Só troca o rótulo na tela — o valor bruto
+# continua sendo o da base, senão filtrar_por_programa deixa de casar.
+ROTULO_PROGRAMA = {'Maintenance': 'MP'}
+
+
+def rotulo_programa(nome):
+    return ROTULO_PROGRAMA.get(nome, nome)
+
 def listar_programas(df):
     if 'Programa de Pesquisa' not in df.columns:
         return []
@@ -598,20 +653,42 @@ def renderizar_composicao_nps(pivot_contagem, pivot_pct, titulo_secao):
 
     df_tab = pd.DataFrame(tabela)
 
-    colunas = {
-        'Mês': st.column_config.TextColumn('Mês', width='small'),
-        'Total': st.column_config.NumberColumn('Total', format='%d', width='small'),
-    }
-    for nome in presentes:
-        plural = PLURAL_CATEGORIA[nome]
-        colunas[nome] = st.column_config.NumberColumn(plural, format='%d', width='small')
-        colunas[f'% {nome}'] = st.column_config.ProgressColumn(
-            f'% {plural}', format='%.1f%%', min_value=0, max_value=100
+    # Tabela em HTML, não st.dataframe: o ProgressColumn do Streamlit pinta
+    # todas as barras com a mesma cor do tema e não aceita cor por coluna.
+    # O grid dele também desenha em canvas, então CSS não alcança. Em HTML
+    # cada barra recebe a cor semântica da sua categoria.
+    cab = "".join(
+        f'<th class="comp-th" colspan="2">{PLURAL_CATEGORIA[n]}</th>' for n in presentes
+    )
+    linhas = []
+    for i, mes in enumerate(meses):
+        celulas = []
+        for nome in presentes:
+            qtd = int(pivot_contagem.loc[nome].values[i])
+            pct = float(pivot_pct.loc[nome].values[i])
+            cor = CORES_CATEGORIA[nome]
+            largura = max(min(pct, 100), 0)
+            pct_txt = f"{pct:.1f}".replace('.', ',') + '%'
+            celulas.append(
+                f'<td class="comp-num">{fmt_milhar(qtd)}</td>'
+                f'<td class="comp-bar-cell">'
+                f'<div class="comp-bar"><i style="width:{largura:.1f}%;background:{cor};"></i></div>'
+                f'<span class="comp-pct">{pct_txt}</span>'
+                f'</td>'
+            )
+        total_mes = int(pivot_contagem[meses].sum(axis=0).values[i])
+        linhas.append(
+            f'<tr><td class="comp-mes">{_rotulo_mes(mes)}</td>'
+            f'{"".join(celulas)}'
+            f'<td class="comp-num comp-total">{fmt_milhar(total_mes)}</td></tr>'
         )
 
-    st.dataframe(
-        df_tab, use_container_width=True, hide_index=True,
-        column_config=colunas, column_order=list(df_tab.columns)
+    st.markdown(
+        f'<div class="comp-wrap"><table class="comp-tabela">'
+        f'<thead><tr><th class="comp-th">Mês</th>{cab}'
+        f'<th class="comp-th">Total</th></tr></thead>'
+        f'<tbody>{"".join(linhas)}</tbody></table></div>',
+        unsafe_allow_html=True
     )
 
     st.download_button(
@@ -898,7 +975,7 @@ if df_geral is not None and df_classificado is not None:
     for prog in programas_presentes:
         df_prog = filtrar_por_programa(df_geral_filt, 'Programa de Pesquisa', prog)
         kpi_specs.append({
-            "t": f"NPS {prog}", 
+            "t": f"NPS {rotulo_programa(prog)}",
             "v": f"{calcular_nps_score(df_prog):.1f}".replace('.', ','), 
             "sub": f"Vol. Respostas: {fmt_milhar(len(df_prog))}", 
             "top": True
@@ -956,15 +1033,22 @@ if df_geral is not None and df_classificado is not None:
             s_detr = pivot_pct.loc['Detrator'] if 'Detrator' in pivot_pct.index else pd.Series(0, index=pivot_pct.columns)
             nps_raw = (s_prom - s_detr).fillna(0)
             
-            nps_text = [f"{x:.1f}".replace('.', ',') for x in nps_raw.values]
+            # <b> em vez de textfont.weight: funciona em qualquer versão do
+            # Plotly e sobrevive à exportação de imagem.
+            nps_text = [f"<b>{x:.1f}</b>".replace('.', ',') for x in nps_raw.values]
 
             df_chart = pivot_contagem.reset_index().melt(id_vars='Classificacao', var_name='Mes', value_name='Quantidade')
             
             titulo_grafico = "Evolução Mensal (NPS)" if titulo_secao == "NPS Geral" or titulo_secao == "" else f"Evolução Mensal - {titulo_secao}"
             
             fig = px.bar(df_chart, x='Mes', y='Quantidade', color='Classificacao', title=titulo_grafico, color_discrete_map=CORES_NPS_PASTEL, text_auto=True)
-            
-            fig.add_trace(go.Scatter(x=nps_raw.index.astype(str), y=[pivot_contagem.sum().max() * 1.1] * len(nps_raw), text=nps_text, mode='text+markers', textposition='top center', name='NPS Score', textfont=dict(size=14, color='black'), marker=dict(size=1, color='rgba(0,0,0,0)')))
+
+            # Valores dentro das barras em negrito e um pouco maiores.
+            fig.update_traces(texttemplate="<b>%{y}</b>",
+                              textfont=dict(size=13, color='#16233F'),
+                              selector=dict(type='bar'))
+
+            fig.add_trace(go.Scatter(x=nps_raw.index.astype(str), y=[pivot_contagem.sum().max() * 1.1] * len(nps_raw), text=nps_text, mode='text+markers', textposition='top center', name='NPS Score', textfont=dict(size=17, color='black'), marker=dict(size=1, color='rgba(0,0,0,0)')))
             
             vals_x = df_chart['Mes'].unique()
             text_x = []
