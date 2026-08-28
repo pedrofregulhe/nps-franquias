@@ -834,6 +834,14 @@ if df_geral is not None and df_classificado is not None:
             df_classificado = df_classificado.merge(temp_plat, on='Num OS', how='left')
             df_classificado['Plataforma'] = df_classificado['Plataforma'].fillna('Não Informado')
 
+        # O técnico só existe na base geral. Sem propagar pelo Num OS, filtrar
+        # por técnico deixaria as abas de motivos mostrando tudo, como se o
+        # filtro não existisse.
+        if 'Nome do Técnico' in df_geral.columns and 'Nome do Técnico' not in df_classificado.columns:
+            temp_tec = df_geral[['Num OS', 'Nome do Técnico']].drop_duplicates('Num OS')
+            df_classificado = df_classificado.merge(temp_tec, on='Num OS', how='left')
+            df_classificado['Nome do Técnico'] = df_classificado['Nome do Técnico'].fillna('Não Informado')
+
     plataformas_disp = sorted([str(p) for p in df_geral['Plataforma'].dropna().unique()])
     plataformas_selecionadas = st.sidebar.multiselect(
         "🛰️ Plataforma (Sistema):",
@@ -855,6 +863,16 @@ if df_geral is not None and df_classificado is not None:
         segmentos_selecionados = st.sidebar.multiselect("Selecione o Segmento:", options=['Todos'] + segmentos_disp, default=['Todos'])
     else:
         segmentos_selecionados = ['Todos']
+
+    if 'Nome do Técnico' in df_geral.columns:
+        _tec = df_geral['Nome do Técnico'].dropna().astype(str).str.strip()
+        tecnicos_disp = sorted(t for t in _tec.unique() if t and t.lower() not in ('nan', 'none'))
+        tecnicos_selecionados = st.sidebar.multiselect(
+            "Selecione o(s) Técnico(s):", options=['Todos'] + tecnicos_disp, default=['Todos'],
+            help="A lista traz apenas os técnicos das franquias que você enxerga."
+        )
+    else:
+        tecnicos_selecionados = ['Todos']
 
     franquias_geral = set(df_geral['Franquia'].dropna().unique())
     franquias_class = set(df_classificado['Franquia'].dropna().unique()) if 'Franquia' in df_classificado.columns else set()
@@ -885,6 +903,13 @@ if df_geral is not None and df_classificado is not None:
     if "Todos" not in segmentos_selecionados:
         df_geral_filt = df_geral_filt[df_geral_filt['Segmento'].isin(segmentos_selecionados)]
         if 'Segmento' in df_class_filt.columns: df_class_filt = df_class_filt[df_class_filt['Segmento'].isin(segmentos_selecionados)]
+
+    if "Todos" not in tecnicos_selecionados:
+        df_geral_filt = df_geral_filt[
+            df_geral_filt['Nome do Técnico'].astype(str).str.strip().isin(tecnicos_selecionados)]
+        if 'Nome do Técnico' in df_class_filt.columns:
+            df_class_filt = df_class_filt[
+                df_class_filt['Nome do Técnico'].astype(str).str.strip().isin(tecnicos_selecionados)]
 
     if franquias_selecionadas:
         df_geral_filt = df_geral_filt[df_geral_filt['Franquia'].isin(franquias_selecionadas)]
