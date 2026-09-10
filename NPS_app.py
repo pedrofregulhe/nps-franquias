@@ -548,6 +548,18 @@ def load_data_classificado(file_path):
         st.error(f"Erro ao ler {file_path}: {e}")
         return None
 
+def opcoes_unicas(serie):
+    """Valores distintos de uma coluna, como texto e em ordem alfabética.
+
+    Do pandas 3.0 em diante o astype(str) preserva o vazio como NaN em vez de
+    convertê-lo na string 'nan'. Sem descartar esses vazios o sorted() acaba
+    comparando float com str e derruba a página inteira com TypeError.
+    """
+    if serie is None:
+        return []
+    limpa = serie.dropna().astype(str).str.strip()
+    return sorted({v for v in limpa.unique() if v and v.lower() not in ('nan', 'none', 'nat')})
+
 def filtrar_por_programa(df, coluna_programa, selecao):
     if selecao == "Geral": return df
     if coluna_programa not in df.columns: return pd.DataFrame()
@@ -1312,7 +1324,7 @@ if df_geral is not None and df_classificado is not None:
             st.subheader("🔎 Filtro de Detalhamento e Extrato")
             
             if 'Categorização Primária' in df_kp.columns:
-                opcoes_cat = sorted(df_kp['Categorização Primária'].astype(str).unique())
+                opcoes_cat = opcoes_unicas(df_kp['Categorização Primária'])
                 sel_cat_prim = st.multiselect("Selecione a Categoria Primária:", opcoes_cat)
                 
                 if sel_cat_prim:
@@ -1321,7 +1333,7 @@ if df_geral is not None and df_classificado is not None:
                     df_filtered = df_kp 
                 
                 if 'Subcategorização Primária' in df_filtered.columns:
-                    opcoes_sub = sorted(df_filtered['Subcategorização Primária'].astype(str).unique())
+                    opcoes_sub = opcoes_unicas(df_filtered['Subcategorização Primária'])
                     sel_cat_sec = st.multiselect("Selecione a Subcategoria:", opcoes_sub)
                     
                     if sel_cat_sec:
@@ -1368,7 +1380,7 @@ if df_geral is not None and df_classificado is not None:
         cr, cf, cm = st.columns([1.2, 1, 1]) 
         
         tp_tec = cr.radio("Programa:", prog_radio_opcoes, horizontal=True, key="rd_tec")
-        ops = ['Todas'] + sorted(df_geral_filt['Franquia'].unique())
+        ops = ['Todas'] + opcoes_unicas(df_geral_filt['Franquia'])
         sel_loc = cf.multiselect("Franquias:", ops, default=['Todas'])
         
         df_tc = filtrar_por_programa(df_geral_filt, 'Programa de Pesquisa', tp_tec)
@@ -1414,7 +1426,7 @@ if df_geral is not None and df_classificado is not None:
             st.plotly_chart(fundo_transparente(fig), use_container_width=True, theme=None)
             
             st.markdown("---")
-            sel_t = st.selectbox("Técnico:", ['Todos'] + sorted(df_tc['Nome do Técnico'].dropna().astype(str).unique()))
+            sel_t = st.selectbox("Técnico:", ['Todos'] + opcoes_unicas(df_tc['Nome do Técnico']))
             
             df_tf = df_tc if sel_t == 'Todos' else df_tc[df_tc['Nome do Técnico'] == sel_t]
             
@@ -1596,7 +1608,7 @@ Crie um relatório estratégico contendo:
                 st.subheader("Selecione os Períodos para Comparação")
                 c_a, c_b = st.columns(2)
                 if 'Mes_Ano_Sort' in df_geral.columns:
-                    periodos_disp = sorted(df_geral['Mes_Ano_Sort'].unique())
+                    periodos_disp = opcoes_unicas(df_geral['Mes_Ano_Sort'])
                 else: periodos_disp = []
 
                 with c_a: 
