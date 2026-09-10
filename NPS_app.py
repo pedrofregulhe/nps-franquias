@@ -89,11 +89,30 @@ html, body, .stApp, [class*="css"] {
 .stApp,
 [data-testid="stAppViewContainer"] { background: var(--bg); }
 
-/* ---- Esconde header/menu/footer nativos ---- */
-header[data-testid="stHeader"] { display: none !important; }
-[data-testid="stDecoration"] { display: none !important; }
+/* ---- Esconde header/menu/footer nativos ----
+   O header NAO pode receber display:none. O botao que reabre a barra lateral
+   (stExpandSidebarButton) e filho dele, entao esconder o pai deixava o usuario
+   preso: quem recolhia os filtros nao conseguia mais traze-los de volta.
+   Aqui o header fica presente porem invisivel e sem capturar clique; so os
+   controles do Streamlit somem, e o botao de reabrir volta a funcionar. */
+header[data-testid="stHeader"] {
+    background: transparent !important;
+    pointer-events: none !important;
+    box-shadow: none !important;
+}
+[data-testid="stToolbarActions"],
+[data-testid="stHeaderActionElements"],
+[data-testid="stAppDeployButton"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"] { display: none !important; }
 #MainMenu, footer { visibility: hidden; }
-[data-testid="stToolbar"] { display: none !important; }
+[data-testid="stExpandSidebarButton"] {
+    pointer-events: auto !important;
+    background: var(--card) !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 8px rgba(10, 42, 102, .12) !important;
+}
 [data-testid="stAppViewContainer"] > .main .block-container,
 [data-testid="stMainBlockContainer"] { padding-top: 2rem; }
 
