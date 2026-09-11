@@ -1398,8 +1398,17 @@ if df_geral is not None and df_classificado is not None:
                 else:
                     classe_aba_5star = "kpi-bg-red"
 
+            # Conta só as respostas que têm nota, que é o mesmo denominador da
+            # média: usar len(df_tc) inflaria o volume com quem não avaliou.
+            qtd_aval = int(df_tc['Avaliação do Técnico'].count())
+
             with cm:
-                criar_card_kpi("Média Geral", f"{media_val:.2f}", extra_class=classe_aba_5star)
+                criar_card_kpi(
+                    "Média Geral",
+                    f"{media_val:.2f}",
+                    sub_valor=f"Vol. Avaliações: {fmt_milhar(qtd_aval)}",
+                    extra_class=classe_aba_5star
+                )
             
             df_evol = df_tc.groupby('Mes_Ano_Sort')['Avaliação do Técnico'].mean().reset_index()
             fig = px.bar(df_evol, x='Mes_Ano_Sort', y='Avaliação do Técnico', title="Evolução Mensal da Nota", text_auto='.2f', color_discrete_sequence=['#08306b'])
@@ -1444,7 +1453,11 @@ if df_geral is not None and df_classificado is not None:
                 key="btn_down_rank"
             )
 
-            df_det_tec = df_tf[['Data da resposta local', 'Nome do Técnico', 'Avaliação do Técnico', 'Num OS', 'Franquia']].sort_values('Data da resposta local', ascending=False)
+            # O comentário fecha o extrato: é texto longo e, vindo antes,
+            # empurraria nota e OS para fora da primeira tela.
+            cols_det_tec = ['Data da resposta local', 'Nome do Técnico', 'Avaliação do Técnico', 'Num OS', 'Franquia', 'Comentário NPS Ecohouse']
+            cols_det_tec = [c for c in cols_det_tec if c in df_tf.columns]
+            df_det_tec = df_tf[cols_det_tec].sort_values('Data da resposta local', ascending=False)
             st.dataframe(df_det_tec, use_container_width=True, hide_index=True)
             
             excel_data_det_tec = convert_df_to_excel(df_det_tec)
