@@ -1444,7 +1444,11 @@ if df_geral is not None and df_classificado is not None:
                 key="btn_down_rank"
             )
 
-            df_det_tec = df_tf[['Data da resposta local', 'Nome do Técnico', 'Avaliação do Técnico', 'Num OS', 'Franquia']].sort_values('Data da resposta local', ascending=False)
+            # O comentário fecha o extrato: é texto longo e, vindo antes,
+            # empurraria nota e OS para fora da primeira tela.
+            cols_det_tec = ['Data da resposta local', 'Nome do Técnico', 'Avaliação do Técnico', 'Num OS', 'Franquia', 'Comentário NPS Ecohouse']
+            cols_det_tec = [c for c in cols_det_tec if c in df_tf.columns]
+            df_det_tec = df_tf[cols_det_tec].sort_values('Data da resposta local', ascending=False)
             st.dataframe(df_det_tec, use_container_width=True, hide_index=True)
             
             excel_data_det_tec = convert_df_to_excel(df_det_tec)
