@@ -974,6 +974,10 @@ if df_geral is not None and df_classificado is not None:
 
     programas_presentes = listar_programas(df_geral_filt)
     val_5s = df_geral_filt['Avaliação do Técnico'].mean() if 'Avaliação do Técnico' in df_geral_filt.columns else None
+    # Volume que sustenta a média do 5Star: só quem avaliou o técnico.
+    # len(df_geral_filt) contaria também quem respondeu o NPS sem dar nota,
+    # anunciando um volume que não entrou no cálculo da média.
+    qtd_5s = int(df_geral_filt['Avaliação do Técnico'].count()) if 'Avaliação do Técnico' in df_geral_filt.columns else 0
 
     # Lógica de Cores para o 5Star
     classe_cor_5star = ""
@@ -1040,6 +1044,7 @@ if df_geral is not None and df_classificado is not None:
     kpi_specs.append({
         "t": "5Star", 
         "v": f"{val_5s:.2f}".replace('.', ',') if pd.notnull(val_5s) else "-", 
+        "sub": f"Vol. Respostas: {fmt_milhar(qtd_5s)}",
         "top": False, 
         "extra_class": classe_cor_5star
     })
