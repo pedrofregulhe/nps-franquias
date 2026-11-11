@@ -25,6 +25,8 @@ from auth import (
 )
 from sqlalchemy import text
 
+from excel_seguro import ler_excel
+
 PLANILHA_USUARIOS = "Usuários qualtrics - Franquias.xlsx"
 
 
@@ -42,7 +44,7 @@ def ler_planilha_usuarios(caminho=PLANILHA_USUARIOS):
     if not os.path.exists(caminho):
         return None, f"Arquivo '{caminho}' nao encontrado."
     try:
-        df = pd.read_excel(caminho)
+        df = ler_excel(caminho)
     except Exception as e:
         return None, f"Erro ao ler a planilha: {e}"
 

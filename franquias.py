@@ -26,6 +26,8 @@ import os
 import pandas as pd
 import streamlit as st
 
+from excel_seguro import ler_excel
+
 ARQUIVO_DE_PARA = "De-Para.xlsx"
 
 # Sufixo de grade: " R01", " R03 - MATRIZ", " - R02". Sempre no fim do nome.
@@ -58,10 +60,10 @@ def carregar_tabela(caminho=ARQUIVO_DE_PARA):
     tabela = {}
     if not os.path.exists(caminho):
         return tabela
-    try:
-        df = pd.read_excel(caminho)
-    except Exception:
-        return tabela
+    # Sem try/except de propósito: se a leitura falhar, o erro sobe e o
+    # st.cache_data não guarda nada. Antes, uma falha passageira gravava um
+    # de-para vazio no cache e a unificação parava em silêncio até reiniciar.
+    df = ler_excel(caminho)
     if df.shape[1] < 2:
         return tabela
 

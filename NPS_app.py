@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import os
 from io import BytesIO
+from excel_seguro import ler_excel
 
 # 1. Configuração da Página
 st.set_page_config(
@@ -454,7 +455,7 @@ def convert_df_to_excel(df):
 def load_data_geral(file_path):
     if not os.path.exists(file_path): return None
     try:
-        df = pd.read_excel(file_path)
+        df = ler_excel(file_path)
         cols_data = ['Data de criação local', 'Data da resposta local', 'Data']
         for col in cols_data:
             if col in df.columns:
@@ -506,14 +507,16 @@ def load_data_geral(file_path):
 
         return df
     except Exception as e:
-        st.error(f"Erro ao ler {file_path}: {e}")
-        return None
+        # Não devolve None: o st.cache_data guardaria a falha e o erro ficaria
+        # preso na tela para todo mundo até reiniciar o app. Repassando o erro,
+        # nada vai para o cache e a próxima abertura tenta ler de novo.
+        raise RuntimeError(f"Erro ao ler {file_path}: {e}") from e
 
 @st.cache_data
 def load_data_classificado(file_path):
     if not os.path.exists(file_path): return None
     try:
-        df = pd.read_excel(file_path)
+        df = ler_excel(file_path)
         if 'Data' in df.columns:
             df['Data'] = pd.to_datetime(df['Data'], errors='coerce', dayfirst=True)
             df['Mes_Ano_Sort'] = df['Data'].dt.to_period('M').astype(str)
@@ -545,8 +548,10 @@ def load_data_classificado(file_path):
 
         return df
     except Exception as e:
-        st.error(f"Erro ao ler {file_path}: {e}")
-        return None
+        # Não devolve None: o st.cache_data guardaria a falha e o erro ficaria
+        # preso na tela para todo mundo até reiniciar o app. Repassando o erro,
+        # nada vai para o cache e a próxima abertura tenta ler de novo.
+        raise RuntimeError(f"Erro ao ler {file_path}: {e}") from e
 
 def opcoes_unicas(serie):
     """Valores distintos de uma coluna, como texto e em ordem alfabética.
@@ -805,8 +810,17 @@ with _cs2:
         auth.realizar_logout()
 st.sidebar.markdown("---")
 
-df_geral = load_data_geral(ARQUIVO_GERAL)
-df_classificado = load_data_classificado(ARQUIVO_CLASSIFICADO)
+def carregar_base(funcao, caminho):
+    """Chama a carga em cache e mostra o erro na tela sem guardá-lo no cache."""
+    try:
+        return funcao(caminho)
+    except Exception as e:
+        st.error(str(e))
+        return None
+
+
+df_geral = carregar_base(load_data_geral, ARQUIVO_GERAL)
+df_classificado = carregar_base(load_data_classificado, ARQUIVO_CLASSIFICADO)
 
 # ==========================================================================
 # RECORTE POR FRANQUIA (CONTROLE DE ACESSO)
